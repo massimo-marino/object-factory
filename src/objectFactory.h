@@ -41,6 +41,7 @@ namespace object_factory::object_counter
 // See:
 // https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 //
+// this type MUST be unsigned
 using counterType = unsigned long;
 
 template <typename T>
@@ -49,16 +50,24 @@ struct objectCounter
  public:
   using counterStatus = std::tuple<counterType, counterType, counterType, bool>;
 
-  objectCounter()
+  objectCounter() noexcept(false)
   {
     ++objectsCreated;
     ++objectsAlive;
+    if ( checkCounterOverflow() )
+    {
+      throw std::overflow_error("Object Counters in OVERFLOW");
+    }
   }
 
-  objectCounter(const objectCounter&)
+  objectCounter(const objectCounter&) noexcept(false)
   {
     ++objectsCreated;
     ++objectsAlive;
+    if ( checkCounterOverflow() )
+    {
+      throw std::overflow_error("Object Counters in OVERFLOW");
+    }
   }
 
   static constexpr
@@ -102,10 +111,18 @@ struct objectCounter
   static counterType objectsDestroyed;
   static bool tooManyDestructions;
 
+  static constexpr
+  inline bool
+  checkCounterOverflow() noexcept
+  {
+    return ( (0 == objectsCreated) || (0 == objectsAlive) );
+  }
+
   // objects should never be removed through pointers of this type
   ~objectCounter()
   {
-    if ( 0 == objectsAlive )
+    if ( (0 == objectsAlive) ||
+         (objectsCreated != (objectsAlive + objectsDestroyed)) )
     {
       tooManyDestructions = true;
     }
@@ -113,10 +130,6 @@ struct objectCounter
     {
       --objectsAlive;
       ++objectsDestroyed;
-      if ( objectsCreated != (objectsAlive + objectsDestroyed) )
-      {
-        tooManyDestructions = true;
-      }
     }
   }
 };

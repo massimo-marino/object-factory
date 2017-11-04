@@ -11,7 +11,7 @@ using namespace ::testing;
 // Tests
 TEST (objectFactory, test_1)
 {
-  class A
+  class A final
   {
     mutable int _x{};
     mutable int _y{};
@@ -91,11 +91,8 @@ TEST (objectFactory, test_1)
     }
   };  // class A
 
+  object_factory::objectFactoryFun<A> objectFactoryFun = object_factory::createObjectFactoryFun<A>();
   using Object = std::unique_ptr<A>;
-  
-  object_factory::objectFactoryFun<A> objectFactoryFun {};
-
-  objectFactoryFun = object_factory::createObjectFactoryFun<A>();
   Object o0 = objectFactoryFun();
 
   {
@@ -157,7 +154,7 @@ TEST (objectFactory, test_1)
 TEST (objectFactory, test_2)
 {
   // class A contains an object counter
-  class A : public object_factory::object_counter::objectCounter<A>
+  class A final : public object_factory::object_counter::objectCounter<A>
   {
     mutable int _x{};
     mutable int _y{};
@@ -250,11 +247,8 @@ TEST (objectFactory, test_2)
   ASSERT_EQ(false, tooManyDestructions);
 
   {
+    object_factory::objectFactoryFun<A> objectFactoryFun = object_factory::createObjectFactoryFun<A>();
     using Object = std::unique_ptr<A>;
-
-    object_factory::objectFactoryFun<A> objectFactoryFun {};
-
-    objectFactoryFun = object_factory::createObjectFactoryFun<A>();
     Object o0 = objectFactoryFun();
 
     {
@@ -363,6 +357,77 @@ TEST (objectFactory, test_2)
   ASSERT_EQ(false, tooManyDestructions);
 }
 
+// The only way to get an overflow is to change the type of
+// object_factory::object_counter::counterType
+// in the file objectFactory.h to an unsigned char or unsigned short and recompile
+TEST (objectFactory, test_3)
+{
+  // class A contains an object counter
+  class A final : public object_factory::object_counter::objectCounter<A>
+  {};
+
+  {
+    using Object = std::unique_ptr<A>;
+    std::vector<Object> v {};
+    object_factory::objectFactoryFun<A> objectFactoryFun = object_factory::createObjectFactoryFun<A>();
+
+    auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] =
+              object_factory::object_counter::objectCounter<A>::getCounterStatus();  
+    
+    for (unsigned long i = 1; i <= 70'000; ++i)
+    {
+      // create an object that can be used in this scope only
+      try
+      {
+        Object o = objectFactoryFun();
+        // store the object in the vector v using move semantics;
+        // the lifetime of the object is extended over this scope
+        v.push_back(std::move(o));
+        std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions) =
+              object_factory::object_counter::objectCounter<A>::getCounterStatus();  
+        std::cout << i
+                  << ": C="
+                  << static_cast<int>(objectsCreated)
+                  << " A="
+                  << static_cast<int>(objectsAlive)
+                  << " D="
+                  << static_cast<int>(objectsDestroyed)
+                  << " TMDs="
+                  << std::boolalpha
+                  << tooManyDestructions
+                  << '\n';
+      }
+      catch (std::overflow_error)
+      {
+        std::cout << "Overflow in object counters occurred\n";
+        EXPECT_THROW(throw, std::overflow_error);
+        std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions) =
+              object_factory::object_counter::objectCounter<A>::getCounterStatus();  
+        ASSERT_EQ(0, objectsCreated);
+        ASSERT_EQ(0, objectsDestroyed);
+        ASSERT_EQ(0, objectsAlive);
+        ASSERT_EQ(false, tooManyDestructions);
+        return;
+      }
+    }
+  }
+  auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] =
+      object_factory::object_counter::objectCounter<A>::getCounterStatus();  
+  std::cout << "C="
+            << static_cast<int>(objectsCreated)
+            << " A="
+            << static_cast<int>(objectsAlive)
+            << " D="
+            << static_cast<int>(objectsDestroyed)
+            << " TMDs="
+            << std::boolalpha
+            << tooManyDestructions
+            << '\n';
+  ASSERT_EQ(70'000, objectsCreated);
+  ASSERT_EQ(70'000, objectsDestroyed);
+  ASSERT_EQ(0, objectsAlive);
+  ASSERT_EQ(false, tooManyDestructions);
+}
 #pragma clang diagnostic pop
 // END: ignore the warnings when compiled with clang up to here
 
