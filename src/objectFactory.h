@@ -45,11 +45,7 @@ template <typename T>
 struct objectCounter
 {
  public:
-  using counterStatus = std::tuple<unsigned long, unsigned long, bool>;
-
-  static unsigned long objectsCreated;
-  static unsigned long objectsAlive;
-  static bool tooManyDestructions;
+  using counterStatus = std::tuple<unsigned long, unsigned long, unsigned long, bool>;
 
   objectCounter()
   {
@@ -63,22 +59,49 @@ struct objectCounter
     ++objectsAlive;
   }
 
-  static auto getCounterStatus() -> counterStatus
+  static auto getObjectsCreatedCounter() noexcept
   {
-    return std::make_tuple(objectsCreated, objectsAlive, tooManyDestructions);
+    return objectsCreated;
+  }
+  static auto getObjectsAliveCounter() noexcept
+  {
+    return objectsAlive;
+  }
+  static auto getObjectsDestroyedCounter() noexcept
+  {
+    return objectsDestroyed;
+  }
+  static auto getTooManyDestructionsFlag() noexcept
+  {
+    return tooManyDestructions;
+  }
+
+  static auto getCounterStatus() noexcept -> counterStatus
+  {
+    return std::make_tuple(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions);
   }
 
  protected:
+  static unsigned long objectsCreated;
+  static unsigned long objectsAlive;
+  static unsigned long objectsDestroyed;
+  static bool tooManyDestructions;
+
   // objects should never be removed through pointers of this type
   ~objectCounter()
   {
     if ( 0 == objectsAlive )
     {
-      tooManyDestructions = true; 
+      tooManyDestructions = true;
     }
     else
     {
       --objectsAlive;
+      ++objectsDestroyed;
+      if ( objectsCreated != (objectsAlive + objectsDestroyed) )
+      {
+        tooManyDestructions = true;
+      }
     }
   }
 };
@@ -88,6 +111,9 @@ unsigned long objectCounter<T>::objectsCreated(0);
 
 template <typename T>
 unsigned long objectCounter<T>::objectsAlive(0);
+
+template <typename T>
+unsigned long objectCounter<T>::objectsDestroyed(0);
 
 template <typename T>
 bool objectCounter<T>::tooManyDestructions(false);

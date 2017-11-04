@@ -237,14 +237,16 @@ TEST (objectFactory, test_2)
     }
   };  // class A
 
-  ASSERT_EQ(0, object_factory::object_counter::objectCounter<A>::objectsAlive);
-  ASSERT_EQ(0, object_factory::object_counter::objectCounter<A>::objectsCreated);
-  ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::tooManyDestructions);
+  ASSERT_EQ(0, object_factory::object_counter::objectCounter<A>::getObjectsAliveCounter());
+  ASSERT_EQ(0, object_factory::object_counter::objectCounter<A>::getObjectsCreatedCounter());
+  ASSERT_EQ(0, object_factory::object_counter::objectCounter<A>::getObjectsDestroyedCounter());
+  ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::getTooManyDestructionsFlag());
 
-  auto [objectsCreated, objectsAlive, tooManyDestructions] =
+  auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] =
           object_factory::object_counter::objectCounter<A>::getCounterStatus();
   ASSERT_EQ(0, objectsAlive);
   ASSERT_EQ(0, objectsCreated);
+  ASSERT_EQ(0, objectsDestroyed);
   ASSERT_EQ(false, tooManyDestructions);
 
   {
@@ -269,14 +271,16 @@ TEST (objectFactory, test_2)
     objectFactoryFun = object_factory::createObjectFactoryFun<A,const int, const int, const int>(11, 22, 33);
     Object o4 = objectFactoryFun();
 
-    ASSERT_EQ(5, object_factory::object_counter::objectCounter<A>::objectsAlive);
-    ASSERT_EQ(5, object_factory::object_counter::objectCounter<A>::objectsCreated);
-    ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::tooManyDestructions);
+    ASSERT_EQ(5, object_factory::object_counter::objectCounter<A>::getObjectsAliveCounter());
+    ASSERT_EQ(5, object_factory::object_counter::objectCounter<A>::getObjectsCreatedCounter());
+    ASSERT_EQ(0, object_factory::object_counter::objectCounter<A>::getObjectsDestroyedCounter());
+    ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::getTooManyDestructionsFlag());
 
-    auto [objectsCreated, objectsAlive, tooManyDestructions] =
+    auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] =
             object_factory::object_counter::objectCounter<A>::getCounterStatus();
     ASSERT_EQ(5, objectsAlive);
     ASSERT_EQ(5, objectsCreated);
+    ASSERT_EQ(0, objectsDestroyed);
     ASSERT_EQ(false, tooManyDestructions);
   
     ASSERT_EQ(o0.get()->get_x(), 0);
@@ -312,14 +316,16 @@ TEST (objectFactory, test_2)
         v.push_back(std::move(o));
       }
 
-      ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::objectsAlive);
-      ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::objectsCreated);
-      ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::tooManyDestructions);
+      ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::getObjectsAliveCounter());
+      ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::getObjectsCreatedCounter());
+      ASSERT_EQ(0, object_factory::object_counter::objectCounter<A>::getObjectsDestroyedCounter());
+      ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::getTooManyDestructionsFlag());
 
-      auto [objectsCreated, objectsAlive, tooManyDestructions] =
+      auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] =
               object_factory::object_counter::objectCounter<A>::getCounterStatus();
       ASSERT_EQ(10, objectsAlive);
       ASSERT_EQ(10, objectsCreated);
+      ASSERT_EQ(0, objectsDestroyed);
       ASSERT_EQ(false, tooManyDestructions);
 
       // all elements in the vector have the same attribute values
@@ -331,25 +337,29 @@ TEST (objectFactory, test_2)
       }
     }  // the objects in the vector v are destroyed, going out of scope
 
-    ASSERT_EQ(5, object_factory::object_counter::objectCounter<A>::objectsAlive);
-    ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::objectsCreated);
-    ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::tooManyDestructions);
+    ASSERT_EQ(5, object_factory::object_counter::objectCounter<A>::getObjectsAliveCounter());
+    ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::getObjectsCreatedCounter());
+    ASSERT_EQ(5, object_factory::object_counter::objectCounter<A>::getObjectsDestroyedCounter());
+    ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::getTooManyDestructionsFlag());
     
-    std::tie(objectsCreated, objectsAlive, tooManyDestructions) =
+    std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions) =
             object_factory::object_counter::objectCounter<A>::getCounterStatus();
     ASSERT_EQ(5, objectsAlive);
     ASSERT_EQ(10, objectsCreated);
+    ASSERT_EQ(5, objectsDestroyed);
     ASSERT_EQ(false, tooManyDestructions);
   }
 
-  ASSERT_EQ(0, object_factory::object_counter::objectCounter<A>::objectsAlive);
-  ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::objectsCreated);
-  ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::tooManyDestructions);
+  ASSERT_EQ(0, object_factory::object_counter::objectCounter<A>::getObjectsAliveCounter());
+  ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::getObjectsCreatedCounter());
+  ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::getObjectsDestroyedCounter());
+  ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::getTooManyDestructionsFlag());
 
-  std::tie(objectsCreated, objectsAlive, tooManyDestructions) =
+  std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions) =
           object_factory::object_counter::objectCounter<A>::getCounterStatus();
   ASSERT_EQ(0, objectsAlive);
   ASSERT_EQ(10, objectsCreated);
+  ASSERT_EQ(10, objectsDestroyed);
   ASSERT_EQ(false, tooManyDestructions);
 }
 
