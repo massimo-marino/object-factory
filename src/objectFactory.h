@@ -41,11 +41,13 @@ namespace object_factory::object_counter
 // See:
 // https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 //
+using counterType = unsigned long;
+
 template <typename T>
 struct objectCounter
 {
  public:
-  using counterStatus = std::tuple<unsigned long, unsigned long, unsigned long, bool>;
+  using counterStatus = std::tuple<counterType, counterType, counterType, bool>;
 
   objectCounter()
   {
@@ -59,32 +61,45 @@ struct objectCounter
     ++objectsAlive;
   }
 
-  static auto getObjectsCreatedCounter() noexcept
+  static constexpr
+  auto
+  getObjectsCreatedCounter() noexcept
   {
     return objectsCreated;
   }
-  static auto getObjectsAliveCounter() noexcept
+
+  static constexpr
+  auto
+  getObjectsAliveCounter() noexcept
   {
     return objectsAlive;
   }
-  static auto getObjectsDestroyedCounter() noexcept
+
+  static constexpr
+  auto
+  getObjectsDestroyedCounter() noexcept
   {
     return objectsDestroyed;
   }
-  static auto getTooManyDestructionsFlag() noexcept
+
+  static constexpr
+  auto
+  getTooManyDestructionsFlag() noexcept
   {
     return tooManyDestructions;
   }
 
-  static auto getCounterStatus() noexcept -> counterStatus
+  static constexpr
+  auto
+  getCounterStatus() noexcept -> counterStatus
   {
     return std::make_tuple(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions);
   }
 
  protected:
-  static unsigned long objectsCreated;
-  static unsigned long objectsAlive;
-  static unsigned long objectsDestroyed;
+  static counterType objectsCreated;
+  static counterType objectsAlive;
+  static counterType objectsDestroyed;
   static bool tooManyDestructions;
 
   // objects should never be removed through pointers of this type
@@ -107,13 +122,13 @@ struct objectCounter
 };
 
 template <typename T>
-unsigned long objectCounter<T>::objectsCreated(0);
+counterType objectCounter<T>::objectsCreated(0);
 
 template <typename T>
-unsigned long objectCounter<T>::objectsAlive(0);
+counterType objectCounter<T>::objectsAlive(0);
 
 template <typename T>
-unsigned long objectCounter<T>::objectsDestroyed(0);
+counterType objectCounter<T>::objectsDestroyed(0);
 
 template <typename T>
 bool objectCounter<T>::tooManyDestructions(false);
