@@ -1,11 +1,9 @@
 #include "../objectFactory.h"
-#include <future>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
 // BEGIN: ignore the warnings listed below when compiled with clang from here
 #pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wexit-time-destructors"
 #pragma clang diagnostic ignored "-Wglobal-constructors"
 
 using namespace ::testing;
@@ -83,8 +81,8 @@ TEST (objectFactory, test_1)
                 << '\n';
     }
 
-    A(const A& rhs) = delete;
-    A& operator=(const A& rhs) = delete;
+    A(const A& rhs) = default;
+    A& operator=(const A& rhs) = default;
 
     ~A()
     {
@@ -229,8 +227,8 @@ TEST (objectFactory, test_2)
                 << '\n';
     }
 
-    A(const A& rhs) = delete;
-    A& operator=(const A& rhs) = delete;
+    A(const A& rhs) = default;
+    A& operator=(const A& rhs) = default;
 
     ~A()
     {
@@ -241,6 +239,13 @@ TEST (objectFactory, test_2)
 
   ASSERT_EQ(0, object_factory::object_counter::objectCounter<A>::objectsAlive);
   ASSERT_EQ(0, object_factory::object_counter::objectCounter<A>::objectsCreated);
+  ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::tooManyDestructions);
+
+  auto [objectsCreated, objectsAlive, tooManyDestructions] =
+          object_factory::object_counter::objectCounter<A>::getCounterStatus();
+  ASSERT_EQ(0, objectsAlive);
+  ASSERT_EQ(0, objectsCreated);
+  ASSERT_EQ(false, tooManyDestructions);
 
   {
     using Object = std::unique_ptr<A>;
@@ -266,7 +271,14 @@ TEST (objectFactory, test_2)
 
     ASSERT_EQ(5, object_factory::object_counter::objectCounter<A>::objectsAlive);
     ASSERT_EQ(5, object_factory::object_counter::objectCounter<A>::objectsCreated);
+    ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::tooManyDestructions);
 
+    auto [objectsCreated, objectsAlive, tooManyDestructions] =
+            object_factory::object_counter::objectCounter<A>::getCounterStatus();
+    ASSERT_EQ(5, objectsAlive);
+    ASSERT_EQ(5, objectsCreated);
+    ASSERT_EQ(false, tooManyDestructions);
+  
     ASSERT_EQ(o0.get()->get_x(), 0);
     ASSERT_EQ(o0.get()->get_y(), 0);
     ASSERT_EQ(o0.get()->get_z(), 0);
@@ -302,6 +314,13 @@ TEST (objectFactory, test_2)
 
       ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::objectsAlive);
       ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::objectsCreated);
+      ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::tooManyDestructions);
+
+      auto [objectsCreated, objectsAlive, tooManyDestructions] =
+              object_factory::object_counter::objectCounter<A>::getCounterStatus();
+      ASSERT_EQ(10, objectsAlive);
+      ASSERT_EQ(10, objectsCreated);
+      ASSERT_EQ(false, tooManyDestructions);
 
       // all elements in the vector have the same attribute values
       for (auto&& item : v)
@@ -314,10 +333,24 @@ TEST (objectFactory, test_2)
 
     ASSERT_EQ(5, object_factory::object_counter::objectCounter<A>::objectsAlive);
     ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::objectsCreated);
+    ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::tooManyDestructions);
+    
+    std::tie(objectsCreated, objectsAlive, tooManyDestructions) =
+            object_factory::object_counter::objectCounter<A>::getCounterStatus();
+    ASSERT_EQ(5, objectsAlive);
+    ASSERT_EQ(10, objectsCreated);
+    ASSERT_EQ(false, tooManyDestructions);
   }
 
   ASSERT_EQ(0, object_factory::object_counter::objectCounter<A>::objectsAlive);
   ASSERT_EQ(10, object_factory::object_counter::objectCounter<A>::objectsCreated);
+  ASSERT_EQ(false, object_factory::object_counter::objectCounter<A>::tooManyDestructions);
+
+  std::tie(objectsCreated, objectsAlive, tooManyDestructions) =
+          object_factory::object_counter::objectCounter<A>::getCounterStatus();
+  ASSERT_EQ(0, objectsAlive);
+  ASSERT_EQ(10, objectsCreated);
+  ASSERT_EQ(false, tooManyDestructions);
 }
 
 #pragma clang diagnostic pop

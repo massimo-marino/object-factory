@@ -12,7 +12,7 @@ auto main() -> int
   std::clog << "\n[" << __func__ << "] "
             << "Object Factory Example STARTED"
             << std::endl;
-    
+
   std::clog << "\n[" << __func__ << "] "
             << "TERMINATED"
             << std::endl;

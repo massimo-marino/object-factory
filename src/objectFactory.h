@@ -45,8 +45,11 @@ template <typename T>
 struct objectCounter
 {
  public:
-  static int objectsCreated;
-  static int objectsAlive;
+  using counterStatus = std::tuple<unsigned long, unsigned long, bool>;
+
+  static unsigned long objectsCreated;
+  static unsigned long objectsAlive;
+  static bool tooManyDestructions;
 
   objectCounter()
   {
@@ -60,19 +63,34 @@ struct objectCounter
     ++objectsAlive;
   }
 
+  static auto getCounterStatus() -> counterStatus
+  {
+    return std::make_tuple(objectsCreated, objectsAlive, tooManyDestructions);
+  }
+
  protected:
   // objects should never be removed through pointers of this type
   ~objectCounter()
   {
-    --objectsAlive;
+    if ( 0 == objectsAlive )
+    {
+      tooManyDestructions = true; 
+    }
+    else
+    {
+      --objectsAlive;
+    }
   }
 };
 
 template <typename T>
-int objectCounter<T>::objectsCreated( 0 );
+unsigned long objectCounter<T>::objectsCreated(0);
 
 template <typename T>
-int objectCounter<T>::objectsAlive( 0 );
+unsigned long objectCounter<T>::objectsAlive(0);
+
+template <typename T>
+bool objectCounter<T>::tooManyDestructions(false);
 
 }  // namespace object_factory::object_counter
 #endif /* OBJECTFACTORY_H */
