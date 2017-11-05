@@ -357,13 +357,13 @@ TEST (objectFactory, test_2)
   ASSERT_EQ(false, tooManyDestructions);
 }
 
-// The only way to get an overflow is to change the type of
-// object_factory::object_counter::counterType
-// in the file objectFactory.h to an unsigned char or unsigned short and recompile
+// The way to get an overflow is to set the type of counters to an
+// unsigned char or unsigned short
 TEST (objectFactory, test_3)
 {
-  // class A contains an object counter
-  class A final : public object_factory::object_counter::objectCounter<A>
+  // class A contains an object counter; its counters type is unsigned short and
+  // they overflow at 65535 + 1
+  class A final : public object_factory::object_counter::objectCounter<A, unsigned short>
   {};
 
   {
@@ -373,8 +373,9 @@ TEST (objectFactory, test_3)
 
     auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] =
               object_factory::object_counter::objectCounter<A>::getCounterStatus();  
-    
-    for (unsigned long i = 1; i <= 70'000; ++i)
+
+    // this loop generates overflow for unsigned short's or shorter types
+    for (unsigned int i = 1; i <= 70'000; ++i)
     {
       // create an object that can be used in this scope only
       try
@@ -387,11 +388,11 @@ TEST (objectFactory, test_3)
               object_factory::object_counter::objectCounter<A>::getCounterStatus();  
         std::cout << i
                   << ": C="
-                  << static_cast<int>(objectsCreated)
+                  << static_cast<long>(objectsCreated)
                   << " A="
-                  << static_cast<int>(objectsAlive)
+                  << static_cast<long>(objectsAlive)
                   << " D="
-                  << static_cast<int>(objectsDestroyed)
+                  << static_cast<long>(objectsDestroyed)
                   << " TMDs="
                   << std::boolalpha
                   << tooManyDestructions
@@ -411,6 +412,8 @@ TEST (objectFactory, test_3)
       }
     }
   }
+  // here if no overflow occurred, but we never arrive here (code provided for
+  // completeness if a greater type would be used)
   auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] =
       object_factory::object_counter::objectCounter<A>::getCounterStatus();  
   std::cout << "C="

@@ -42,13 +42,13 @@ namespace object_factory::object_counter
 // See:
 // https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 //
-// this type MUST be unsigned
-using counterType = unsigned long;
-
-template <typename T>
+// TC, the type of the counters, MUST be unsigned
+  // counters type is unsigned long by default
+template <typename T, typename TC = unsigned long>
 struct objectCounter
 {
  public:
+  using counterType = TC;
   using counterStatus = std::tuple<counterType, counterType, counterType, bool>;
 
   objectCounter() noexcept(false)
@@ -74,7 +74,7 @@ struct objectCounter
   }
 
   static
-  auto
+  counterType
   getObjectsCreatedCounter() noexcept
   {
     std::lock_guard<std::mutex> lg(mtx_);
@@ -82,7 +82,7 @@ struct objectCounter
   }
 
   static
-  auto
+  counterType
   getObjectsAliveCounter() noexcept
   {
     std::lock_guard<std::mutex> lg(mtx_);
@@ -90,7 +90,7 @@ struct objectCounter
   }
 
   static
-  auto
+  counterType
   getObjectsDestroyedCounter() noexcept
   {
     std::lock_guard<std::mutex> lg(mtx_);
@@ -98,7 +98,7 @@ struct objectCounter
   }
 
   static
-  auto
+  bool
   getTooManyDestructionsFlag() noexcept
   {
     std::lock_guard<std::mutex> lg(mtx_);
@@ -146,20 +146,20 @@ struct objectCounter
   }
 };
 
-template <typename T>
-std::mutex objectCounter<T>::mtx_{};
+template <typename T, typename TC>
+std::mutex objectCounter<T, TC>::mtx_{};
 
-template <typename T>
-counterType objectCounter<T>::objectsCreated_{0};
+template <typename T, typename TC>
+TC objectCounter<T, TC>::objectsCreated_{0};
 
-template <typename T>
-counterType objectCounter<T>::objectsAlive_{0};
+template <typename T, typename TC>
+TC objectCounter<T, TC>::objectsAlive_{0};
 
-template <typename T>
-counterType objectCounter<T>::objectsDestroyed_{0};
+template <typename T, typename TC>
+TC objectCounter<T, TC>::objectsDestroyed_{0};
 
-template <typename T>
-bool objectCounter<T>::tooManyDestructions_{false};
+template <typename T, typename TC>
+bool objectCounter<T, TC>::tooManyDestructions_{false};
 
 }  // namespace object_factory::object_counter
 #endif /* OBJECTFACTORY_H */
