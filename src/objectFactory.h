@@ -9,6 +9,7 @@
 #define OBJECTFACTORY_H
 
 #include <memory>
+#include <mutex>
 ////////////////////////////////////////////////////////////////////////////////
 namespace object_factory
 {
@@ -52,8 +53,9 @@ struct objectCounter
 
   objectCounter() noexcept(false)
   {
-    ++objectsCreated;
-    ++objectsAlive;
+    std::lock_guard<std::mutex> lg(mtx_);
+    ++objectsCreated_;
+    ++objectsAlive_;
     if ( checkCounterOverflow() )
     {
       throw std::overflow_error("Object Counters in OVERFLOW");
@@ -62,89 +64,102 @@ struct objectCounter
 
   objectCounter(const objectCounter&) noexcept(false)
   {
-    ++objectsCreated;
-    ++objectsAlive;
+    std::lock_guard<std::mutex> lg(mtx_);
+    ++objectsCreated_;
+    ++objectsAlive_;
     if ( checkCounterOverflow() )
     {
       throw std::overflow_error("Object Counters in OVERFLOW");
     }
   }
 
-  static constexpr
+  static
   auto
   getObjectsCreatedCounter() noexcept
   {
-    return objectsCreated;
+    std::lock_guard<std::mutex> lg(mtx_);
+    return objectsCreated_;
   }
 
-  static constexpr
+  static
   auto
   getObjectsAliveCounter() noexcept
   {
-    return objectsAlive;
+    std::lock_guard<std::mutex> lg(mtx_);
+    return objectsAlive_;
   }
 
-  static constexpr
+  static
   auto
   getObjectsDestroyedCounter() noexcept
   {
-    return objectsDestroyed;
+    std::lock_guard<std::mutex> lg(mtx_);
+    return objectsDestroyed_;
   }
 
-  static constexpr
+  static
   auto
   getTooManyDestructionsFlag() noexcept
   {
-    return tooManyDestructions;
+    std::lock_guard<std::mutex> lg(mtx_);
+    return tooManyDestructions_;
   }
 
-  static constexpr
+  static
   auto
   getCounterStatus() noexcept -> counterStatus
   {
-    return std::make_tuple(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions);
+    std::lock_guard<std::mutex> lg(mtx_);
+    return std::make_tuple(objectsCreated_, objectsAlive_, objectsDestroyed_, tooManyDestructions_);
   }
 
  protected:
-  static counterType objectsCreated;
-  static counterType objectsAlive;
-  static counterType objectsDestroyed;
-  static bool tooManyDestructions;
+   // in a multithreaded process threads can allocate objects of the same class,
+   // so static data must be protected
+  static std::mutex mtx_;
+  static counterType objectsCreated_;
+  static counterType objectsAlive_;
+  static counterType objectsDestroyed_;
+  static bool tooManyDestructions_;
 
   static constexpr
   inline bool
   checkCounterOverflow() noexcept
   {
-    return ( (0 == objectsCreated) || (0 == objectsAlive) );
+    return ( (0 == objectsCreated_) || (0 == objectsAlive_) );
   }
 
   // objects should never be removed through pointers of this type
   ~objectCounter()
   {
-    if ( (0 == objectsAlive) ||
-         (objectsCreated != (objectsAlive + objectsDestroyed)) )
+    std::lock_guard<std::mutex> lg(mtx_);
+    if ( (0 == objectsAlive_) ||
+         (objectsCreated_ != (objectsAlive_ + objectsDestroyed_)) )
     {
-      tooManyDestructions = true;
+      tooManyDestructions_ = true;
     }
     else
     {
-      --objectsAlive;
-      ++objectsDestroyed;
+      --objectsAlive_;
+      ++objectsDestroyed_;
     }
   }
 };
 
 template <typename T>
-counterType objectCounter<T>::objectsCreated(0);
+std::mutex objectCounter<T>::mtx_{};
 
 template <typename T>
-counterType objectCounter<T>::objectsAlive(0);
+counterType objectCounter<T>::objectsCreated_{0};
 
 template <typename T>
-counterType objectCounter<T>::objectsDestroyed(0);
+counterType objectCounter<T>::objectsAlive_{0};
 
 template <typename T>
-bool objectCounter<T>::tooManyDestructions(false);
+counterType objectCounter<T>::objectsDestroyed_{0};
+
+template <typename T>
+bool objectCounter<T>::tooManyDestructions_{false};
 
 }  // namespace object_factory::object_counter
 #endif /* OBJECTFACTORY_H */
