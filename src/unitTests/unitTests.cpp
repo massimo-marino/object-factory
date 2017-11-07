@@ -1,4 +1,5 @@
 #include "../objectFactory.h"
+#include <future>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
@@ -429,6 +430,65 @@ TEST (objectFactory, test_3)
   ASSERT_EQ(70'000, objectsCreated);
   ASSERT_EQ(70'000, objectsDestroyed);
   ASSERT_EQ(0, objectsAlive);
+  ASSERT_EQ(false, tooManyDestructions);
+}
+
+// test multithread support
+TEST (objectFactory, test_4)
+{
+  class A final : public object_factory::object_counter::objectCounter<A>
+  {};
+
+  // check initial state
+  auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] =
+        object_factory::object_counter::objectCounter<A>::getCounterStatus();
+  ASSERT_EQ(0, objectsAlive);
+  ASSERT_EQ(0, objectsCreated);
+  ASSERT_EQ(0, objectsDestroyed);
+  ASSERT_EQ(false, tooManyDestructions);
+
+  object_factory::objectFactoryFun<A> objectFactoryFun = object_factory::createObjectFactoryFun<A>();
+  using Object = std::unique_ptr<A>;
+  const unsigned long objectsToCreate {55'000'000};
+  const unsigned int threadNumber {11};
+
+  auto threadFun = [&objectFactoryFun](const unsigned long objs)
+  {
+    for (unsigned long i = 1; i <= objs; ++i)
+    {
+      Object o = objectFactoryFun();
+    }
+  };
+
+  std::vector<std::future<void>> threadVector{};
+
+  // tasks launched asynchronously
+  for (unsigned int i = 1; i <= threadNumber; ++i)
+  {
+    threadVector.push_back(std::async(std::launch::async, threadFun, objectsToCreate));
+  }
+
+  // wait for all threads to be finished and process any exception
+  try
+  {
+    for(auto&& item: threadVector)
+    {
+      item.get();
+    }
+  }
+  catch( const std::exception& e )
+  {
+    std::clog << "EXCEPTION: "
+              << e.what()
+              << '\n';
+  }
+
+  // check final state
+  std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions)=
+        object_factory::object_counter::objectCounter<A>::getCounterStatus();
+  ASSERT_EQ(0, objectsAlive);
+  ASSERT_EQ(threadNumber * objectsToCreate, objectsCreated);
+  ASSERT_EQ(threadNumber * objectsToCreate, objectsDestroyed);
   ASSERT_EQ(false, tooManyDestructions);
 }
 #pragma clang diagnostic pop
