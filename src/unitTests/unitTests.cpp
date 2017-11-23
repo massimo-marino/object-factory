@@ -452,15 +452,19 @@ TEST (objectFactory, test_4)
   const unsigned long objectsToCreate {55'000'000};
   const unsigned int threadNumber {11};
 
-  auto threadFun = [&objectFactoryFun](const unsigned long objs)
+  const
+  auto
+  threadFun = [&objectFactoryFun](const unsigned long objs)
   {
-    for (unsigned long i = 1; i <= objs; ++i)
+    unsigned long i;
+    for (i = 1; i <= objs; ++i)
     {
       Object o = objectFactoryFun();
     }
+    return i;
   };
 
-  std::vector<std::future<void>> threadVector{};
+  std::vector<std::future<unsigned long>> threadVector{};
 
   // tasks launched asynchronously
   for (unsigned int i = 1; i <= threadNumber; ++i)
@@ -473,7 +477,7 @@ TEST (objectFactory, test_4)
   {
     for(auto&& item: threadVector)
     {
-      item.get();
+      ASSERT_EQ(item.get(), objectsToCreate + 1);
     }
   }
   catch( const std::exception& e )
