@@ -4,9 +4,7 @@
  *
  * Created on September 20, 2017, 1:15 PM
  */
-
-#ifndef OBJECTFACTORY_H
-#define OBJECTFACTORY_H
+#pragma once
 
 #include <memory>
 #include <mutex>
@@ -53,6 +51,7 @@ struct objectCounter
   using counterType = TC;
   using counterStatus = std::tuple<counterType, counterType, counterType, bool>;
 
+  explicit
   objectCounter() noexcept(false)
   {
     std::lock_guard<std::mutex> lg(mtx_);
@@ -64,6 +63,7 @@ struct objectCounter
     }
   }
 
+  explicit
   objectCounter(const objectCounter&) noexcept(false)
   {
     std::lock_guard<std::mutex> lg(mtx_);
@@ -165,4 +165,3 @@ template <typename T, typename TC>
 bool objectCounter<T, TC>::tooManyDestructions_{false};
 
 }  // namespace object_factory::object_counter
-#endif /* OBJECTFACTORY_H */

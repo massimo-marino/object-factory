@@ -6,6 +6,7 @@
 // BEGIN: ignore the warnings listed below when compiled with clang from here
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wglobal-constructors"
+#pragma clang diagnostic ignored "-Wzero-as-null-pointer-constant"
 
 using namespace ::testing;
 ////////////////////////////////////////////////////////////////////////////////
@@ -82,9 +83,6 @@ TEST (objectFactory, test_1)
                 << '\n';
     }
 
-    A(const A& rhs) = default;
-    A& operator=(const A& rhs) = default;
-
     ~A()
     {
       std::cout << "Destroyed object: ";
@@ -134,7 +132,7 @@ TEST (objectFactory, test_1)
                                                               (99, 88, 77);
 
     std::vector<Object> v {};
-    for (int i = 1; i <= 5; ++i)
+    for (int i {1}; i <= 5; ++i)
     {
       // create an object that can be used in this scope only
       Object o = objectFactoryFun();
@@ -225,9 +223,6 @@ TEST (objectFactory, test_2)
                 << '\n';
     }
 
-    A(const A& rhs) = default;
-    A& operator=(const A& rhs) = default;
-
     ~A()
     {
       std::cout << "Destroyed object: ";
@@ -302,7 +297,7 @@ TEST (objectFactory, test_2)
                                                                 (99, 88, 77);
 
       std::vector<Object> v {};
-      for (int i = 1; i <= 5; ++i)
+      for (int i {1}; i <= 5; ++i)
       {
         // create an object that can be used in this scope only
         Object o = objectFactoryFun();
@@ -376,7 +371,7 @@ TEST (objectFactory, test_3)
               object_factory::object_counter::objectCounter<A>::getCounterStatus();  
 
     // this loop generates overflow for unsigned short's or shorter types
-    for (unsigned int i = 1; i <= 70'000; ++i)
+    for (unsigned int i {1}; i <= 70'000; ++i)
     {
       // create an object that can be used in this scope only
       try
@@ -399,7 +394,7 @@ TEST (objectFactory, test_3)
                   << tooManyDestructions
                   << '\n';
       }
-      catch (std::overflow_error)
+      catch ([[maybe_unused]] const std::overflow_error& e)
       {
         std::cout << "Overflow in object counters occurred\n";
         EXPECT_THROW(throw, std::overflow_error);
@@ -418,11 +413,11 @@ TEST (objectFactory, test_3)
   auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] =
       object_factory::object_counter::objectCounter<A>::getCounterStatus();  
   std::cout << "C="
-            << static_cast<int>(objectsCreated)
+            << static_cast<unsigned long>(objectsCreated)
             << " A="
-            << static_cast<int>(objectsAlive)
+            << static_cast<unsigned long>(objectsAlive)
             << " D="
-            << static_cast<int>(objectsDestroyed)
+            << static_cast<unsigned long>(objectsDestroyed)
             << " TMDs="
             << std::boolalpha
             << tooManyDestructions
@@ -436,6 +431,9 @@ TEST (objectFactory, test_3)
 // test multithread support
 TEST (objectFactory, test_4)
 {
+  std::clog << "This test takes a LONG time: be patient..."
+            << std::endl;
+
   class A final : public object_factory::object_counter::objectCounter<A>
   {};
 
@@ -449,7 +447,7 @@ TEST (objectFactory, test_4)
 
   object_factory::objectFactoryFun<A> objectFactoryFun = object_factory::createObjectFactoryFun<A>();
   using Object = std::unique_ptr<A>;
-  const unsigned long objectsToCreate {55'000'000};
+  const unsigned long objectsToCreate {6'745'953};
   const unsigned int threadNumber {11};
 
   const
@@ -467,7 +465,7 @@ TEST (objectFactory, test_4)
   std::vector<std::future<unsigned long>> threadVector{};
 
   // tasks launched asynchronously
-  for (unsigned int i = 1; i <= threadNumber; ++i)
+  for (unsigned int i {1}; i <= threadNumber; ++i)
   {
     threadVector.push_back(std::async(std::launch::async, threadFun, objectsToCreate));
   }
@@ -475,7 +473,7 @@ TEST (objectFactory, test_4)
   // wait for all threads to be finished and process any exception
   try
   {
-    for(auto&& item: threadVector)
+    for (auto&& item: threadVector)
     {
       ASSERT_EQ(item.get(), objectsToCreate + 1);
     }
@@ -495,10 +493,56 @@ TEST (objectFactory, test_4)
   ASSERT_EQ(threadNumber * objectsToCreate, objectsDestroyed);
   ASSERT_EQ(false, tooManyDestructions);
 }
+
+TEST (objectFactory, test_5)
+{
+  class A final : public object_factory::object_counter::objectCounter<A>
+  {};
+  class B final : public object_factory::object_counter::objectCounter<B>
+  {};
+
+  // check initial states
+  auto [objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A] =
+  object_factory::object_counter::objectCounter<A>::getCounterStatus();
+  ASSERT_EQ(0, objectsAlive_A);
+  ASSERT_EQ(0, objectsCreated_A);
+  ASSERT_EQ(0, objectsDestroyed_A);
+  ASSERT_EQ(false, tooManyDestructions_A);
+
+  auto [objectsCreated_B, objectsAlive_B, objectsDestroyed_B, tooManyDestructions_B] =
+  object_factory::object_counter::objectCounter<B>::getCounterStatus();
+  ASSERT_EQ(0, objectsAlive_B);
+  ASSERT_EQ(0, objectsCreated_B);
+  ASSERT_EQ(0, objectsDestroyed_B);
+  ASSERT_EQ(false, tooManyDestructions_B);
+
+  object_factory::objectFactoryFun<A> A_objectFactoryFun = object_factory::createObjectFactoryFun<A>();
+  using A_Object = std::unique_ptr<A>;
+  object_factory::objectFactoryFun<B> B_objectFactoryFun = object_factory::createObjectFactoryFun<B>();
+  using B_Object = std::unique_ptr<B>;
+
+  {
+    // objects created
+    A_Object oA1 = A_objectFactoryFun();
+    A_Object oA2 = A_objectFactoryFun();
+    B_Object oB1 = B_objectFactoryFun();
+  }  // objects destroyed leaving this scope
+
+  // check final states
+  std::tie(objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A)=
+           object_factory::object_counter::objectCounter<A>::getCounterStatus();
+  ASSERT_EQ(0, objectsAlive_A);
+  ASSERT_EQ(2, objectsCreated_A);
+  ASSERT_EQ(2, objectsDestroyed_A);
+  ASSERT_EQ(false, tooManyDestructions_A);
+
+  std::tie(objectsCreated_B, objectsAlive_B, objectsDestroyed_B, tooManyDestructions_B)=
+           object_factory::object_counter::objectCounter<B>::getCounterStatus();
+  ASSERT_EQ(0, objectsAlive_B);
+  ASSERT_EQ(1, objectsCreated_B);
+  ASSERT_EQ(1, objectsDestroyed_B);
+  ASSERT_EQ(false, tooManyDestructions_B);
+}
+
 #pragma clang diagnostic pop
 // END: ignore the warnings when compiled with clang up to here
-
-//int main(int argc, char **argv) {
-//  ::testing::InitGoogleTest(&argc, argv);
-//  return RUN_ALL_TESTS();
-//}
