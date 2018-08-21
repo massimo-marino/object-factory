@@ -1,10 +1,12 @@
-cmake_minimum_required(VERSION 3.5)
-
-PROJECT( object-factory-unit-tests )
+SET (THE_PROJECT object-factory-unit-tests)
+#
+CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
+PROJECT(${THE_PROJECT})
 
 ################################################################################
 #### settings for clang 5.0
 SET (CMAKE_CXX_COMPILER "/clang_5.0.0/bin/clang++-5.0")
+SET (CMAKE_EXPORT_COMPILE_COMMANDS on)
 SET (CLANG_CXX_FLAGS "-I. -I.. -std=c++17 -Ofast -ffast-math -pthread -pedantic -pedantic-errors -Wall -Weffc++ -Wextra -Wfatal-errors -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -fno-assume-sane-operator-new")
 ####SET (CLANG_CXX_FLAGS "${CLANG_CXX_FLAGS} -fsanitize=undefined")
 SET (GOOGLETEST_LIBS "-lgtest_dll -lgtest_main")
@@ -18,10 +20,16 @@ SET (CMAKE_LIBRARY_PATH "/usr/lib/x86_64-linux-gnu")
 
 SET (CMAKE_VERBOSE_MAKEFILE on )
 
+SET (SOURCES_TO_BE_TESTED ../objectFactory.cpp ../objectFactory.h ../object-counter.cpp ../object-counter.h)
+SET (UNIT_TESTS_SOURCES unitTests.cpp )
+SET (SOURCES_LIST ${UNIT_TESTS_SOURCES} ${SOURCES_TO_BE_TESTED} )
+SET (OBJ_EXECUTABLE unitTests)
+
+ADD_EXECUTABLE (${OBJ_EXECUTABLE} ${SOURCES_LIST})
+
 # ------------------------- Begin Generic CMake Variable Logging ------------------
 
 # /*	C++ comment style not allowed	*/
-
 
 # if you are building in-source, this is the same as CMAKE_SOURCE_DIR, otherwise 
 # this is the top level directory of your build tree 
@@ -171,7 +179,3 @@ MESSAGE( STATUS "CMAKE_RANLIB: " ${CMAKE_RANLIB} )
 MESSAGE( STATUS )
 
 # ------------------------- End of Generic CMake Variable Logging ------------------
-
-SET( sources_list unitTests.cpp ../objectFactory.cpp ../objectFactory.h )
-
-ADD_EXECUTABLE( unitTests ${sources_list} )
