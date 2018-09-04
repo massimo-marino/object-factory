@@ -355,11 +355,13 @@ TEST (objectFactory, test_2)
 
 // The way to get an overflow is to set the type of counters to an
 // unsigned char or unsigned short
-TEST (objectFactory, test_3)
+TEST (objectFactory, test_3_A)
 {
+  using namespace object_factory::object_counter;
+
   // class A contains an object counter; its counters type is unsigned short and
   // they overflow at 65535 + 1
-  class A final : public object_factory::object_counter::objectCounter<A, unsigned short>
+  class A final : public objectCounter<A, unsigned short>
   {};
 
   {
@@ -367,8 +369,7 @@ TEST (objectFactory, test_3)
     std::vector<Object> v {};
     object_factory::objectFactoryFun<A> objectFactoryFun = object_factory::createObjectFactoryFun<A>();
 
-    auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] =
-    object_factory::object_counter::objectCounter<A>::getObjectCounters();
+    auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] = A::getObjectCounters();
 
     // this loop generates overflow for unsigned short's or shorter types
     for (unsigned int i {1}; i <= 70'000; ++i)
@@ -380,8 +381,7 @@ TEST (objectFactory, test_3)
         // store the object in the vector v using move semantics;
         // the lifetime of the object is extended over this scope
         v.push_back(std::move(o));
-        std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions) =
-                object_factory::object_counter::objectCounter<A>::getObjectCounters();
+        std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions) = A::getObjectCounters();
         std::cout << i
                   << ": C="
                   << static_cast<long>(objectsCreated)
@@ -396,22 +396,114 @@ TEST (objectFactory, test_3)
       }
       catch ([[maybe_unused]] const std::overflow_error& e)
       {
-        std::cout << "Overflow in object counters occurred\n";
-        EXPECT_THROW(throw, std::overflow_error);
-        std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions) =
-                object_factory::object_counter::objectCounter<A>::getObjectCounters();
+        std::cout << ">>> Overflow in object counters occurred <<<\n";
+        // counters are all zeroed because of the overflow, then they contain wrong data
+        std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions) = A::getObjectCounters();
+        std::cout << i
+                  << ": C="
+                  << static_cast<long>(objectsCreated)
+                  << " A="
+                  << static_cast<long>(objectsAlive)
+                  << " D="
+                  << static_cast<long>(objectsDestroyed)
+                  << " TMDs="
+                  << std::boolalpha
+                  << tooManyDestructions
+                  << '\n';
         ASSERT_EQ(0, objectsCreated);
         ASSERT_EQ(0, objectsDestroyed);
         ASSERT_EQ(0, objectsAlive);
         ASSERT_EQ(false, tooManyDestructions);
+        EXPECT_THROW(throw, std::overflow_error);
         return;
       }
     }
   }
-  // here if no overflow occurred, but we never arrive here (code provided for
-  // completeness if a greater type would be used)
-  auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] =
-  object_factory::object_counter::objectCounter<A>::getObjectCounters();
+  // here if no overflow occurred, but we never arrive here
+  // code provided for completeness if a greater type would be used
+  auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] = A::getObjectCounters();
+  std::cout << "C="
+            << static_cast<unsigned long>(objectsCreated)
+            << " A="
+            << static_cast<unsigned long>(objectsAlive)
+            << " D="
+            << static_cast<unsigned long>(objectsDestroyed)
+            << " TMDs="
+            << std::boolalpha
+            << tooManyDestructions
+            << '\n';
+  ASSERT_EQ(70'000, objectsCreated);
+  ASSERT_EQ(70'000, objectsDestroyed);
+  ASSERT_EQ(0, objectsAlive);
+  ASSERT_EQ(false, tooManyDestructions);
+}
+
+// The same as test_3_A but without overflow
+TEST (objectFactory, test_3_B)
+{
+  using namespace object_factory::object_counter;
+
+  // class A contains an object counter; its counters type is unsigned int
+  class A final : public objectCounter<A, unsigned int>
+  {};
+
+  {
+    using Object = std::unique_ptr<A>;
+    std::vector<Object> v {};
+    object_factory::objectFactoryFun<A> objectFactoryFun = object_factory::createObjectFactoryFun<A>();
+
+    auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] = A::getObjectCounters();
+
+    for (unsigned int i {1}; i <= 70'000; ++i)
+    {
+      // create an object that can be used in this scope only
+      try
+      {
+        Object o = objectFactoryFun();
+        // store the object in the vector v using move semantics;
+        // the lifetime of the object is extended over this scope
+        v.push_back(std::move(o));
+        std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions) = A::getObjectCounters();
+        std::cout << i
+                  << ": C="
+                  << static_cast<long>(objectsCreated)
+                  << " A="
+                  << static_cast<long>(objectsAlive)
+                  << " D="
+                  << static_cast<long>(objectsDestroyed)
+                  << " TMDs="
+                  << std::boolalpha
+                  << tooManyDestructions
+                  << '\n';
+      }
+      // in this test no std::overflow_error is thrown, so the catch block is not executed
+      catch ([[maybe_unused]] const std::overflow_error& e)
+      {
+        std::cout << ">>> Overflow in object counters occurred <<<\n";
+        // counters are all zeroed because of the overflow, then they contain wrong data
+        std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions) = A::getObjectCounters();
+        std::cout << i
+                  << ": C="
+                  << static_cast<long>(objectsCreated)
+                  << " A="
+                  << static_cast<long>(objectsAlive)
+                  << " D="
+                  << static_cast<long>(objectsDestroyed)
+                  << " TMDs="
+                  << std::boolalpha
+                  << tooManyDestructions
+                  << '\n';
+        ASSERT_EQ(0, objectsCreated);
+        ASSERT_EQ(0, objectsDestroyed);
+        ASSERT_EQ(0, objectsAlive);
+        ASSERT_EQ(false, tooManyDestructions);
+        EXPECT_THROW(throw, std::overflow_error);
+        return;
+      }
+    }
+  }
+
+  auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] = A::getObjectCounters();
   std::cout << "C="
             << static_cast<unsigned long>(objectsCreated)
             << " A="
@@ -431,15 +523,16 @@ TEST (objectFactory, test_3)
 // test multithread support
 TEST (objectFactory, test_4)
 {
+  using namespace object_factory::object_counter;
+
   std::clog << "This test takes a LONG time: be patient..."
             << std::endl;
 
-  class A final : public object_factory::object_counter::objectCounter<A>
+  class A final : public objectCounter<A>
   {};
 
   // check initial state
-  auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] =
-  object_factory::object_counter::objectCounter<A>::getObjectCounters();
+  auto [objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions] = A::getObjectCounters();
   ASSERT_EQ(0, objectsAlive);
   ASSERT_EQ(0, objectsCreated);
   ASSERT_EQ(0, objectsDestroyed);
@@ -486,8 +579,7 @@ TEST (objectFactory, test_4)
   }
 
   // check final state
-  std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions)=
-          object_factory::object_counter::objectCounter<A>::getObjectCounters();
+  std::tie(objectsCreated, objectsAlive, objectsDestroyed, tooManyDestructions)= A::getObjectCounters();
   ASSERT_EQ(0, objectsAlive);
   ASSERT_EQ(threadNumber * objectsToCreate, objectsCreated);
   ASSERT_EQ(threadNumber * objectsToCreate, objectsDestroyed);
@@ -496,21 +588,21 @@ TEST (objectFactory, test_4)
 
 TEST (objectFactory, test_5)
 {
-  class A final : public object_factory::object_counter::objectCounter<A>
+  using namespace object_factory::object_counter;
+
+  class A final : public objectCounter<A>
   {};
-  class B final : public object_factory::object_counter::objectCounter<B>
+  class B final : public objectCounter<B>
   {};
 
   // check initial states
-  auto [objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A] =
-  object_factory::object_counter::objectCounter<A>::getObjectCounters();
+  auto [objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A] = A::getObjectCounters();
   ASSERT_EQ(0, objectsAlive_A);
   ASSERT_EQ(0, objectsCreated_A);
   ASSERT_EQ(0, objectsDestroyed_A);
   ASSERT_EQ(false, tooManyDestructions_A);
 
-  auto [objectsCreated_B, objectsAlive_B, objectsDestroyed_B, tooManyDestructions_B] =
-  object_factory::object_counter::objectCounter<B>::getObjectCounters();
+  auto [objectsCreated_B, objectsAlive_B, objectsDestroyed_B, tooManyDestructions_B] = B::getObjectCounters();
   ASSERT_EQ(0, objectsAlive_B);
   ASSERT_EQ(0, objectsCreated_B);
   ASSERT_EQ(0, objectsDestroyed_B);
@@ -529,15 +621,13 @@ TEST (objectFactory, test_5)
   }  // objects destroyed leaving this scope
 
   // check final states
-  std::tie(objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A)=
-          object_factory::object_counter::objectCounter<A>::getObjectCounters();
+  std::tie(objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A)= A::getObjectCounters();
   ASSERT_EQ(0, objectsAlive_A);
   ASSERT_EQ(2, objectsCreated_A);
   ASSERT_EQ(2, objectsDestroyed_A);
   ASSERT_EQ(false, tooManyDestructions_A);
 
-  std::tie(objectsCreated_B, objectsAlive_B, objectsDestroyed_B, tooManyDestructions_B)=
-          object_factory::object_counter::objectCounter<B>::getObjectCounters();
+  std::tie(objectsCreated_B, objectsAlive_B, objectsDestroyed_B, tooManyDestructions_B)= B::getObjectCounters();
   ASSERT_EQ(0, objectsAlive_B);
   ASSERT_EQ(1, objectsCreated_B);
   ASSERT_EQ(1, objectsDestroyed_B);
@@ -551,10 +641,8 @@ TEST (objectFactory, test_6)
   class A final : public objectCounter<A>
   {};
 
-  using objectCounter_A = objectCounter<A>;
-
   // check initial states
-  auto [objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A] = objectCounter_A::getObjectCounters();
+  auto [objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A] = A::getObjectCounters();
   ASSERT_EQ(0, objectsAlive_A);
   ASSERT_EQ(0, objectsCreated_A);
   ASSERT_EQ(0, objectsDestroyed_A);
@@ -568,8 +656,8 @@ TEST (objectFactory, test_6)
     b = std::move(a); // move assignment(1)
     b = A{};          // ctor(4), dtor(2), move assignment(2)
 
-    auto [objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A] = objectCounter_A::getObjectCounters();
-    auto [copyAssignments_A, moveConstructions_A, moveAssignments_A] = objectCounter_A::getCopyMoveCounters();
+    auto [objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A] = A::getObjectCounters();
+    auto [copyAssignments_A, moveConstructions_A, moveAssignments_A] = A::getCopyMoveCounters();
 
     std::cout << "objects created "
               << objectsCreated_A
@@ -587,13 +675,13 @@ TEST (objectFactory, test_6)
   }  // dtor(3), dtor(4)
 
   // check final states
-  std::tie(objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A) = objectCounter_A::getObjectCounters();
+  std::tie(objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A) = A::getObjectCounters();
   ASSERT_EQ(0, objectsAlive_A);
   ASSERT_EQ(4, objectsCreated_A);
   ASSERT_EQ(4, objectsDestroyed_A);
   ASSERT_EQ(false, tooManyDestructions_A);
 
-  auto [copyAssignments_A, moveConstructions_A, moveAssignments_A] = objectCounter_A::getCopyMoveCounters();
+  auto [copyAssignments_A, moveConstructions_A, moveAssignments_A] = A::getCopyMoveCounters();
 
   std::cout << "objects created "
             << objectsCreated_A
@@ -609,9 +697,9 @@ TEST (objectFactory, test_6)
             << moveAssignments_A
             << "\n";
 
-  ASSERT_EQ(copyAssignments_A, objectCounter_A::getCopyAssignmentsCounter());
-  ASSERT_EQ(moveConstructions_A, objectCounter_A::getMoveConstructionsCounter());
-  ASSERT_EQ(moveAssignments_A, objectCounter_A::getMoveAssignmentsCounter());
+  ASSERT_EQ(copyAssignments_A, A::getCopyAssignmentsCounter());
+  ASSERT_EQ(moveConstructions_A, A::getMoveConstructionsCounter());
+  ASSERT_EQ(moveAssignments_A, A::getMoveAssignmentsCounter());
 }
 
 #pragma clang diagnostic pop

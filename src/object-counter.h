@@ -167,6 +167,7 @@ protected:
   }
 
   // objects should never be removed through pointers of this type
+  virtual
   ~objectCounter() noexcept
   {
     std::lock_guard<std::mutex> lg(mtx_);
