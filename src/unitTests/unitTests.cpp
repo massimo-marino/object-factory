@@ -654,10 +654,11 @@ TEST (objectFactory, test_6)
     A b = a;          // ctor(3)
     a = b;            // copy assignment(1)
     b = std::move(a); // move assignment(1)
+    A c = std::move(b); // move ctor(1)
     b = A{};          // ctor(4), dtor(2), move assignment(2)
 
     auto [objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A] = A::getObjectCounters();
-    auto [copyAssignments_A, moveConstructions_A, moveAssignments_A] = A::getCopyMoveCounters();
+    auto [copyConstructions_A, copyAssignments_A, moveConstructions_A, moveAssignments_A] = A::getCopyMoveCounters();
 
     std::cout << "objects created "
               << objectsCreated_A
@@ -665,6 +666,10 @@ TEST (objectFactory, test_6)
               << objectsAlive_A
               << " - objects destroyed "
               << objectsDestroyed_A
+              << " - too many destructions "
+              << tooManyDestructions_A
+              << " - copy constructions "
+              << copyConstructions_A
               << " - copy assignments "
               << copyAssignments_A
               << " - move constructions "
@@ -677,11 +682,11 @@ TEST (objectFactory, test_6)
   // check final states
   std::tie(objectsCreated_A, objectsAlive_A, objectsDestroyed_A, tooManyDestructions_A) = A::getObjectCounters();
   ASSERT_EQ(0, objectsAlive_A);
-  ASSERT_EQ(4, objectsCreated_A);
-  ASSERT_EQ(4, objectsDestroyed_A);
+  ASSERT_EQ(5, objectsCreated_A);
+  ASSERT_EQ(5, objectsDestroyed_A);
   ASSERT_EQ(false, tooManyDestructions_A);
 
-  auto [copyAssignments_A, moveConstructions_A, moveAssignments_A] = A::getCopyMoveCounters();
+  auto [copyConstructions_A, copyAssignments_A, moveConstructions_A, moveAssignments_A] = A::getCopyMoveCounters();
 
   std::cout << "objects created "
             << objectsCreated_A
@@ -689,6 +694,10 @@ TEST (objectFactory, test_6)
             << objectsAlive_A
             << " - objects destroyed "
             << objectsDestroyed_A
+            << " - too many destructions "
+            << tooManyDestructions_A
+            << " - copy constructions "
+            << copyConstructions_A
             << " - copy assignments "
             << copyAssignments_A
             << " - move constructions "
@@ -697,6 +706,7 @@ TEST (objectFactory, test_6)
             << moveAssignments_A
             << "\n";
 
+  ASSERT_EQ(copyConstructions_A, A::getCopyConstructionsCounter());
   ASSERT_EQ(copyAssignments_A, A::getCopyAssignmentsCounter());
   ASSERT_EQ(moveConstructions_A, A::getMoveConstructionsCounter());
   ASSERT_EQ(moveAssignments_A, A::getMoveAssignmentsCounter());

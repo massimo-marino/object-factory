@@ -27,7 +27,7 @@ class objectCounter
 {
 public:
   using objectCounters = std::tuple<counterType, counterType, counterType, bool>;
-  using copyMoveCounters = std::tuple<counterType, counterType, counterType>;
+  using copyMoveCounters = std::tuple<counterType, counterType, counterType, counterType>;
 
   // default ctor
   objectCounter() noexcept(false)
@@ -45,6 +45,7 @@ public:
   objectCounter([[maybe_unused]]const objectCounter& rhs) noexcept(false)
   {
     std::lock_guard<std::mutex> lg(mtx_);
+    ++copyConstructions_;
     ++objectsCreated_;
     ++objectsAlive_;
     if ( checkCounterOverflow() )
@@ -62,18 +63,41 @@ public:
   }
 
   // move ctor
-  objectCounter([[maybe_unused]] const objectCounter&& rhs)
+  objectCounter([[maybe_unused]] objectCounter&& rhs)
   {
     std::lock_guard<std::mutex> lg(mtx_);
     ++moveConstructions_;
+    ++objectsCreated_;
+    ++objectsAlive_;
+    if ( checkCounterOverflow() )
+    {
+      throw std::overflow_error("Object Counters in OVERFLOW");
+    }
   }
 
   // move assignment operator=
-  objectCounter& operator=([[maybe_unused]] const objectCounter&& rhs)
+  objectCounter& operator=([[maybe_unused]] objectCounter&& rhs)
   {
     std::lock_guard<std::mutex> lg(mtx_);
     ++moveAssignments_;
     return *this;
+  }
+
+  // objects should never be removed through pointers of this type
+  virtual
+  ~objectCounter() noexcept
+  {
+    std::lock_guard<std::mutex> lg(mtx_);
+    if (   (0 == objectsAlive_) // must be non-zero since we destroy an object
+           || (objectsCreated_ != (objectsAlive_ + objectsDestroyed_)) )
+    {
+      tooManyDestructions_ = true;
+    }
+    else
+    {
+      --objectsAlive_;
+      ++objectsDestroyed_;
+    }
   }
 
   static
@@ -106,6 +130,14 @@ public:
   {
     std::lock_guard<std::mutex> lg(mtx_);
     return tooManyDestructions_;
+  }
+
+  static
+  counterType
+  getCopyConstructionsCounter() noexcept
+  {
+    std::lock_guard<std::mutex> lg(mtx_);
+    return copyConstructions_;
   }
 
   static
@@ -144,7 +176,22 @@ public:
   getCopyMoveCounters() noexcept -> copyMoveCounters
   {
     std::lock_guard<std::mutex> lg(mtx_);
-    return std::make_tuple(copyAssignments_, moveConstructions_, moveAssignments_);
+    return std::make_tuple(copyConstructions_, copyAssignments_, moveConstructions_, moveAssignments_);
+  }
+
+  static
+  void
+  resetCounters() noexcept
+  {
+    std::lock_guard<std::mutex> lg(mtx_);
+    objectsCreated_ = 0;
+    objectsAlive_ = 0;
+    objectsDestroyed_ = 0;
+    copyConstructions_ = 0;
+    copyAssignments_ = 0;
+    moveConstructions_ = 0;
+    moveAssignments_ = 0;
+    tooManyDestructions_ = false;
   }
 
 protected:
@@ -154,33 +201,19 @@ protected:
   static counterType objectsCreated_;
   static counterType objectsAlive_;
   static counterType objectsDestroyed_;
+  static counterType copyConstructions_;
   static counterType copyAssignments_;
   static counterType moveConstructions_;
   static counterType moveAssignments_;
   static bool tooManyDestructions_;
 
+private:
   static constexpr
   bool
   checkCounterOverflow() noexcept
   {
-    return ( (0 == objectsCreated_) || (0 == objectsAlive_) );
-  }
-
-  // objects should never be removed through pointers of this type
-  virtual
-  ~objectCounter() noexcept
-  {
-    std::lock_guard<std::mutex> lg(mtx_);
-    if ( (0 == objectsAlive_) ||
-         (objectsCreated_ != (objectsAlive_ + objectsDestroyed_)) )
-    {
-      tooManyDestructions_ = true;
-    }
-    else
-    {
-      --objectsAlive_;
-      ++objectsDestroyed_;
-    }
+    return ( (0 == objectsAlive_) ||
+             (objectsCreated_ != (objectsAlive_ + objectsDestroyed_)) );
   }
 };  // class objectCounter
 
@@ -195,6 +228,9 @@ TC objectCounter<T, TC>::objectsAlive_ {0};
 
 template <typename T, typename TC>
 TC objectCounter<T, TC>::objectsDestroyed_ {0};
+
+template <typename T, typename TC>
+TC objectCounter<T, TC>::copyConstructions_ {0};
 
 template <typename T, typename TC>
 TC objectCounter<T, TC>::copyAssignments_ {0};
