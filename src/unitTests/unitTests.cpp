@@ -1,3 +1,7 @@
+//
+// unitTests.cpp
+//
+#include "../object-counter.h"
 #include "../objectFactory.h"
 #include <future>
 #include <gtest/gtest.h>

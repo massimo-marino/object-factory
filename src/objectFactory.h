@@ -6,9 +6,6 @@
  */
 #pragma once
 
-#include "object-counter.h"
-
-#include <functional>
 #include <memory>
 ////////////////////////////////////////////////////////////////////////////////
 namespace object_factory
